@@ -18,5 +18,10 @@
   ],
   "paths": [
     {"title":"跟一次预约","steps":[{"node":"reader","note":"选一本书，提交预约。"},{"node":"booking","note":"得到预约编号，并保存这次请求。"},{"node":"desk","note":"工作人员找到书，确认备妥。"},{"node":"reader","note":"收到取书通知。"}]}
+  ],
+  "checkpoints": [
+    {"date":"2026-10-18","title":"预约路径核对","changes":[
+      {"node":"booking","status":"verified","note":"提交预约后可以看到预约编号。","evidence":"示例验收 · 编号可在预约记录中查到。","next":"接下来先考虑改期还是取消预约？"}
+    ]}
   ]
 }

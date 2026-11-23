@@ -1,0 +1,19 @@
+.structure-progress-note, .structure-progress-change {
+  --progress-rule: var(--accent, var(--atlas-a, #196453));
+  padding: .55rem .7rem;
+  border-inline-start: 3px solid var(--progress-rule);
+  background: color-mix(in srgb, var(--progress-rule) 8%, transparent);
+  min-width: 0;
+}
+:is(.structure-progress-note,.structure-progress-change):is([data-status=planned],[data-status=blocked]) {
+  --progress-rule: var(--atlas-c, #a06229);
+}
+.structure-progress-note {font-size:.86rem;display:grid;gap:.3rem;justify-items:start}
+.structure-progress-checkpoint {display:grid;gap:.65rem;margin-block:.9rem 1.4rem}
+.structure-progress-checkpoint time,.structure-progress-meta {font-size:.88rem}
+.structure-progress-checkpoint h3,.structure-progress-change h4 {margin:0}
+.structure-progress-change {display:grid;gap:.45rem;padding:.65rem .8rem}
+.structure-progress-actions {display:flex;align-items:center;flex-wrap:wrap;gap:.35rem .6rem}
+.structure-progress-button {cursor:pointer;font:inherit;font-size:.87rem;padding:.27rem .55rem;border:1px solid var(--rule,var(--atlas-stroke,#cbd4ce));border-radius:.3rem;background:var(--surface,var(--atlas-paper,Canvas));color:inherit;text-align:start}
+.structure-progress-button:hover {border-color:var(--progress-rule)}
+.structure-progress-context {width:100%;padding:.45rem;font:inherit;color:inherit;background:var(--surface,var(--atlas-paper,Canvas));resize:vertical}

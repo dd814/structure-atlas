@@ -1,11 +1,14 @@
 """Validate a relationship atlas and build a self-contained HTML document."""
 import argparse
+from datetime import date
 import html
 import json
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 
 KINDS = {"actual", "experimental", "planned", "uncertain"}
+UPDATE_STATES = {"verified", "implemented", "blocked", "planned"}
 
 
 def text(record, field, where, optional=False):
@@ -20,6 +23,37 @@ def array(record, field, where, optional=False):
     if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
         raise ValueError(f"{where}.{field} must be an array of objects")
     return value
+
+
+def validate_checkpoints(data, ids):
+    previous = ""
+    for index, checkpoint in enumerate(array(data, "checkpoints", "atlas", optional=True)):
+        where = f"checkpoints[{index}]"
+        stamp = text(checkpoint, "date", where)
+        try:
+            parsed = date.fromisoformat(stamp)
+        except ValueError:
+            raise ValueError(f"{where}.date must use YYYY-MM-DD") from None
+        if parsed.isoformat() != stamp or stamp < previous:
+            raise ValueError(f"{where}.date must use YYYY-MM-DD in chronological order")
+        previous = stamp
+        text(checkpoint, "title", where)
+        changes = array(checkpoint, "changes", where)
+        if not changes:
+            raise ValueError(f"{where}.changes must include at least one update")
+        seen = set()
+        for number, change in enumerate(changes):
+            location = f"{where}.changes[{number}]"
+            node = text(change, "node", location)
+            if node not in ids or node in seen:
+                raise ValueError(f"{location}.node must name a known node once per checkpoint")
+            seen.add(node)
+            status = text(change, "status", location)
+            if status not in UPDATE_STATES:
+                raise ValueError(f"{location}.status must be one of {', '.join(sorted(UPDATE_STATES))}")
+            text(change, "note", location)
+            text(change, "evidence", location, optional=status != "verified")
+            text(change, "next", location, optional=True)
 
 
 def validate(data):
@@ -82,6 +116,24 @@ def validate(data):
             if text(step, "node", location) not in ids:
                 raise ValueError(f"{location}.node must name a known node")
             text(step, "note", location)
+    validate_checkpoints(data, ids)
+
+
+def write_document(output, document, overwrite=False):
+    if not overwrite:
+        with output.open("x", encoding="utf-8", newline="") as result:
+            result.write(document)
+        return
+    staging = None
+    try:
+        with NamedTemporaryFile(mode="w", encoding="utf-8", newline="", dir=output.parent,
+                                prefix=f".{output.stem}-", suffix=".tmp", delete=False) as result:
+            staging = Path(result.name)
+            result.write(document)
+        staging.replace(output)
+    finally:
+        if staging is not None:
+            staging.unlink(missing_ok=True)
 
 
 def main():
@@ -95,14 +147,15 @@ def main():
             raise ValueError("Input and output must be different paths")
         data = json.loads(args.input.read_text(encoding="utf-8-sig"))
         validate(data)
-        template = Path(__file__).resolve().parents[1] / "assets" / "atlas.html"
+        assets = Path(__file__).resolve().parents[1] / "assets"
         payload = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
         payload = payload.replace("<", r"\u003c").replace(">", r"\u003e").replace("&", r"\u0026")
-        document = template.read_text(encoding="utf-8")
-        document = document.replace("__ATLAS_TITLE__", html.escape(data["title"]))
+        document = (assets / "atlas.html").read_text(encoding="utf-8")
+        document = document.replace("__ATLAS_PROGRESS_CSS__", (assets / "progress.css").read_text(encoding="utf-8"), 1)
+        document = document.replace("__ATLAS_PROGRESS_JS__", (assets / "progress.js").read_text(encoding="utf-8"), 1)
         document = document.replace("__ATLAS_JSON__", payload, 1)
-        with args.output.open("w" if args.force else "x", encoding="utf-8", newline="") as result:
-            result.write(document)
+        document = document.replace("__ATLAS_TITLE__", html.escape(data["title"]), 1)
+        write_document(args.output, document, args.force)
     except (OSError, ValueError) as error:
         parser.error(str(error))
     print(f"{len(data['nodes'])} nodes, {len(data['edges'])} relations")

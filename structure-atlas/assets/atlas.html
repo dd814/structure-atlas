@@ -54,15 +54,17 @@ pre{padding:.75rem;background:var(--hint);white-space:pre-wrap;tab-size:4;overfl
 [hidden]{display:none!important}
 @media(max-width:760px){.diagram{display:none}.explorer{grid-template-columns:1fr;gap:.9rem}}
 @media(pointer:coarse){button,summary{min-height:44px}}
+__ATLAS_PROGRESS_CSS__
 </style>
 </head>
 <body>
 <main id="atlas">
-  <header><h1 data-title></h1><p data-intro></p></header>
+  <header><h1 data-title></h1><p data-intro></p><p class="meta" data-progress-summary hidden></p></header>
   <nav class="views" aria-label="阅读方式">
     <button type="button" data-view="overview" aria-pressed="true">关系总图</button>
     <button type="button" data-view="paths" aria-pressed="false">沿具体过程读</button>
     <button type="button" data-view="detail" aria-pressed="false">部件与细节</button>
+    <button type="button" data-view="progress" aria-pressed="false" hidden>项目进展</button>
   </nav>
   <section data-panel="overview">
     <h2>各部分怎样交接</h2>
@@ -79,9 +81,11 @@ pre{padding:.75rem;background:var(--hint);white-space:pre-wrap;tab-size:4;overfl
     <nav aria-label="部件目录"><h2>部件目录</h2><div data-folders></div></nav>
     <article class="reader" data-reader aria-live="polite"></article>
   </section>
+  <section data-panel="progress" hidden><h2>项目进展</h2><p class="section-intro caption">更新后刷新本页，即可查看最新记录。</p><div data-progress-log></div></section>
 </main>
 <script id="atlas-data" type="application/json">__ATLAS_JSON__</script>
 <script>
+__ATLAS_PROGRESS_JS__
 (() => {
   const data = JSON.parse(document.getElementById('atlas-data').textContent);
   const root = document.getElementById('atlas');
@@ -114,6 +118,13 @@ pre{padding:.75rem;background:var(--hint);white-space:pre-wrap;tab-size:4;overfl
   select('[data-intro]').hidden = !data.intro;
   select('[data-legend]').hidden = !data.edges.some(edge => edge.kind && edge.kind !== 'actual');
   select('[data-view="paths"]').hidden = !data.paths?.length;
+  select('[data-view="progress"]').hidden = !data.checkpoints?.length;
+  const latestNote = mountAtlasProgress({
+    panel:select('[data-progress-log]'), summary:select('[data-progress-summary]'),
+    checkpoints:data.checkpoints ?? [], title:data.title, label:id => byId.get(id).title,
+    openProgress:() => show('progress'),
+    openNode:id => { openNode(id); show('detail'); select('[data-reader]').scrollIntoView({block:'nearest'}); },
+  });
   const placed = data.nodes.filter(node => node.position);
   graph.hidden = !placed.length;
   if (placed.length) graph.style.setProperty('--columns', Math.max(...placed.map(node => node.position[1])));
@@ -121,6 +132,8 @@ pre{padding:.75rem;background:var(--hint);white-space:pre-wrap;tab-size:4;overfl
     const mark = make('article', null, 'node');
     mark.style.gridArea = node.position.join(' / ');
     mark.append(make('p', node.group, 'meta'), nodeButton(node.id), make('p', node.summary, 'caption'));
+    const note = latestNote(node.id);
+    if (note) mark.append(note);
     graph.append(mark);
     marks.set(node.id, mark);
   }
@@ -204,6 +217,8 @@ pre{padding:.75rem;background:var(--hint);white-space:pre-wrap;tab-size:4;overfl
     head.append(make('p', node.group, 'meta'), make('h2', node.title), make('p', node.summary));
     if (node.source) head.append(make('p', node.source, 'meta'));
     reader.replaceChildren(head);
+    const note = latestNote(id);
+    if (note) reader.append(note);
     const connected = data.edges.filter(edge => edge.from === id || edge.to === id);
     if (connected.length) {
       const links = make('details', null, 'edge-index');
