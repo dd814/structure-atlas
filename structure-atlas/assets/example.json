@@ -1,0 +1,22 @@
+{
+  "title": "图书馆预约取书",
+  "intro": "沿着箭头看一条预约从提交、登记到通知。数据记录和面向读者的反馈各有自己的往返关系。",
+  "nodes": [
+    {"id":"reader","title":"读者界面","group":"用户操作","summary":"读者提交书号，查阅预约和取书消息。","position":[1,1]},
+    {"id":"booking","title":"预约服务","group":"办理程序","summary":"校验请求，保存预约，向读者反馈结果。","position":[1,2],
+      "blocks":[{"title":"登记请求","summary":"检查预约所需信息，生成预约编号。"},{"title":"查询预约","summary":"按预约编号返回当前状态。"}]},
+    {"id":"records","title":"预约记录","group":"留存数据","summary":"按预约编号记录书号、状态与交接时间。","position":[2,2]},
+    {"id":"desk","title":"服务台处理","group":"办理程序","summary":"工作人员找到书后登记备妥，触发取书通知。","position":[1,3]}
+  ],
+  "edges": [
+    {"from":"reader","to":"booking","label":"提交书号","detail":"读者发送书号和预约信息。"},
+    {"from":"booking","to":"reader","label":"返回状态","detail":"预约服务返回预约编号和状态。"},
+    {"from":"booking","to":"records","label":"保存预约","detail":"新建记录，供服务台后续查阅。"},
+    {"from":"booking","to":"desk","label":"发待办","detail":"服务台收到一项待处理预约。"},
+    {"from":"desk","to":"booking","label":"确认备妥","detail":"工作人员找到书后更新状态。"},
+    {"from":"desk","to":"reader","label":"取书通知","detail":"备妥后提示读者到柜台取书。","diagram":false}
+  ],
+  "paths": [
+    {"title":"跟一次预约","steps":[{"node":"reader","note":"选一本书，提交预约。"},{"node":"booking","note":"得到预约编号，并保存这次请求。"},{"node":"desk","note":"工作人员找到书，确认备妥。"},{"node":"reader","note":"收到取书通知。"}]}
+  ]
+}

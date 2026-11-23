@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__ATLAS_TITLE__</title>
+<style>
+:root{color-scheme:light dark;--surface:Canvas;--ink:CanvasText;--accent:light-dark(#175b83,#8ac9ec);--rule:color-mix(in srgb,var(--ink) 20%,var(--surface));--quiet:color-mix(in srgb,var(--ink) 78%,var(--surface));--hint:color-mix(in srgb,var(--accent) 7%,var(--surface))}
+*{box-sizing:border-box}
+body{margin:0;background:var(--surface);color:var(--ink);font:16px/1.55 system-ui,"Microsoft YaHei",sans-serif}
+main{max-width:76rem;margin:auto;padding:clamp(1rem,3vw,2.25rem);overflow-wrap:anywhere}
+:is(h1,h2,h3,p,ol,ul){margin:0}
+h1{font-size:clamp(1.55rem,3.3vw,2.55rem);line-height:1.22}
+h2{font-size:1.28rem}
+h3{font-size:1.02rem}
+header p{margin:.65rem 0 1rem;color:var(--quiet);max-width:65ch}
+button{font:inherit;color:inherit;background:var(--surface);border:1px solid var(--rule);border-radius:.25rem;padding:.35rem .65rem;cursor:pointer;text-align:start;max-width:100%}
+button:hover{border-color:var(--accent);background:var(--hint)}
+button[aria-pressed=true]{background:var(--accent);color:var(--surface);border-color:var(--accent)}
+:is(button,summary):focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+summary{cursor:pointer}
+.views{display:flex;flex-wrap:wrap;gap:.55rem;border-block:1px solid var(--rule);padding:.7rem 0;margin-bottom:1.25rem}
+.caption,.meta{font-size:.86rem;color:var(--quiet)}
+.section-intro{margin:.25rem 0 .9rem}
+.diagram{position:relative;display:grid;grid-template-columns:repeat(var(--columns,3),minmax(0,1fr));column-gap:clamp(4.3rem,10vw,9rem);row-gap:4.7rem;margin:1rem 0 1.4rem}
+.diagram .node{min-width:0;min-height:6.4rem;display:grid;align-content:start;justify-items:start;gap:.35rem;z-index:1;padding:.7rem .78rem;border:1px solid var(--rule);border-block-start:3px solid var(--accent);background:var(--hint)}
+.diagram svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.diagram .wire{fill:none;stroke:var(--accent);stroke-width:1.75}
+.diagram .wire[data-kind]:not([data-kind=actual]){stroke-dasharray:5 4}
+.diagram .wire-label{fill:var(--ink);stroke:var(--surface);stroke-width:4px;paint-order:stroke;font-size:12px;text-anchor:middle}
+.diagram marker path{fill:var(--accent)}
+.edge-index,.blocks{margin-top:.85rem}
+.edge-list,.path-list,.folder-list{list-style:none;padding:0}
+.edge-list>li,.blocks>details{border-block-end:1px solid var(--rule);padding:.6rem 0;display:grid;gap:.25rem}
+.edge-label{display:flex;align-items:baseline;flex-wrap:wrap;gap:.35rem}
+.edge-label button{font-size:.92rem}
+.edge-kind{border-inline-start:2px solid var(--accent);padding-inline-start:.35rem}
+.edge-detail{color:var(--quiet)}
+.path{margin:1rem 0}
+.path-list{margin-top:.65rem;counter-reset:step}
+.path-list li{counter-increment:step;display:grid;grid-template-columns:2rem minmax(0,1fr);gap:.3rem .65rem;border-inline-start:2px solid var(--rule);margin-inline-start:.65rem;padding:.5rem 0 .65rem .7rem}
+.path-list li::before{content:counter(step,decimal-leading-zero);color:var(--accent);grid-row:1 / span 2;font-family:ui-monospace,monospace}
+.path-list button{justify-self:start}
+.explorer{display:grid;grid-template-columns:minmax(11rem,1fr) minmax(0,2.4fr);gap:1.4rem}
+.folder{border-block-end:1px solid var(--rule);padding:.6rem 0}
+.folder-list{margin:.45rem 0 .2rem .5rem;padding-inline-start:.6rem;border-inline-start:1px solid var(--rule);display:grid;gap:.3rem;justify-items:start}
+.reader{min-width:0}
+.reader-head{display:grid;gap:.3rem;border-block-end:1px solid var(--rule);padding-bottom:.8rem}
+.reader .edge-index{margin:1rem 0}
+.blocks h3{margin-bottom:.45rem}
+.blocks>details[open]{border-inline-start:2px solid var(--accent);padding-inline-start:.65rem}
+.blocks details p,.blocks details details{margin:.5rem 0 .15rem}
+pre{padding:.75rem;background:var(--hint);white-space:pre-wrap;tab-size:4;overflow-wrap:anywhere}
+[hidden]{display:none!important}
+@media(max-width:760px){.diagram{display:none}.explorer{grid-template-columns:1fr;gap:.9rem}}
+@media(pointer:coarse){button,summary{min-height:44px}}
+</style>
+</head>
+<body>
+<main id="atlas">
+  <header><h1 data-title></h1><p data-intro></p></header>
+  <nav class="views" aria-label="阅读方式">
+    <button type="button" data-view="overview" aria-pressed="true">关系总图</button>
+    <button type="button" data-view="paths" aria-pressed="false">沿具体过程读</button>
+    <button type="button" data-view="detail" aria-pressed="false">部件与细节</button>
+  </nav>
+  <section data-panel="overview">
+    <h2>各部分怎样交接</h2>
+    <p class="section-intro caption" data-legend hidden>实线表示已确认的关系。虚线表示实验、规划或待核实，详见关系清单。</p>
+    <div class="diagram" data-diagram>
+      <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs>
+        <marker id="edge-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z"/></marker>
+      </defs><g data-wires></g></svg>
+    </div>
+    <details class="edge-index" data-edge-index open><summary>查看交接与出处</summary><ul class="edge-list" data-all-edges></ul></details>
+  </section>
+  <section data-panel="paths" hidden><h2>从一个具体过程出发</h2><div data-paths></div></section>
+  <section data-panel="detail" class="explorer" hidden>
+    <nav aria-label="部件目录"><h2>部件目录</h2><div data-folders></div></nav>
+    <article class="reader" data-reader aria-live="polite"></article>
+  </section>
+</main>
+<script id="atlas-data" type="application/json">__ATLAS_JSON__</script>
+<script>
+(() => {
+  const data = JSON.parse(document.getElementById('atlas-data').textContent);
+  const root = document.getElementById('atlas');
+  const select = selector => root.querySelector(selector);
+  const byId = new Map(data.nodes.map(node => [node.id, node]));
+  const directory = new Map();
+  const marks = new Map();
+  const kinds = { actual:'已确认', experimental:'实验', planned:'计划', uncertain:'待核实' };
+  const make = (tag, value, className) => {
+    const e = document.createElement(tag);
+    if (value) e.textContent = value;
+    if (className) e.className = className;
+    return e;
+  };
+  const nodeButton = id => {
+    const b = make('button', byId.get(id).title);
+    b.type = 'button';
+    b.dataset.node = id;
+    return b;
+  };
+  const graph = select('[data-diagram]');
+  const wires = select('[data-wires]');
+  const svg = (tag, attrs) => {
+    const mark = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (const [key,value] of Object.entries(attrs)) mark.setAttribute(key, value);
+    return mark;
+  };
+  select('[data-title]').textContent = data.title;
+  select('[data-intro]').textContent = data.intro ?? '';
+  select('[data-intro]').hidden = !data.intro;
+  select('[data-legend]').hidden = !data.edges.some(edge => edge.kind && edge.kind !== 'actual');
+  select('[data-view="paths"]').hidden = !data.paths?.length;
+  const placed = data.nodes.filter(node => node.position);
+  graph.hidden = !placed.length;
+  if (placed.length) graph.style.setProperty('--columns', Math.max(...placed.map(node => node.position[1])));
+  for (const node of placed) {
+    const mark = make('article', null, 'node');
+    mark.style.gridArea = node.position.join(' / ');
+    mark.append(make('p', node.group, 'meta'), nodeButton(node.id), make('p', node.summary, 'caption'));
+    graph.append(mark);
+    marks.set(node.id, mark);
+  }
+  const diagramEdges = data.edges.filter(edge => edge.diagram !== false && marks.has(edge.from) && marks.has(edge.to));
+  const edgePairs = new Set(diagramEdges.map(edge => JSON.stringify([edge.from,edge.to])));
+  function drawEdges() {
+    wires.replaceChildren();
+    const canvas = graph.getBoundingClientRect();
+    if (!canvas.width) return;
+    for (const edge of diagramEdges) {
+      const source = marks.get(edge.from).getBoundingClientRect();
+      const dest = marks.get(edge.to).getBoundingClientRect();
+      const dx = (dest.left + dest.right - source.left - source.right) / 2;
+      const dy = (dest.top + dest.bottom - source.top - source.bottom) / 2;
+      const parallel = edgePairs.has(JSON.stringify([edge.to,edge.from]));
+      const horizontal = Math.abs(dx) >= Math.abs(dy);
+      const sign = Math.sign(horizontal ? dx : dy);
+      const offset = parallel ? sign * 11 : 0;
+      const a = horizontal
+        ? [(sign > 0 ? source.right : source.left) - canvas.left + sign * 3, source.top - canvas.top + source.height/2 + offset]
+        : [source.left - canvas.left + source.width/2 + offset, (sign > 0 ? source.bottom : source.top) - canvas.top + sign * 3];
+      const b = horizontal
+        ? [(sign > 0 ? dest.left : dest.right) - canvas.left - sign * 4, dest.top - canvas.top + dest.height/2 + offset]
+        : [dest.left - canvas.left + dest.width/2 + offset, (sign > 0 ? dest.top : dest.bottom) - canvas.top - sign * 4];
+      const connector = svg('path', { class:'wire', 'data-kind':edge.kind ?? 'actual',
+        d:'M' + a.join(',') + ' L' + b.join(','), 'marker-end':'url(#edge-arrow)' });
+      const label = svg('text', { class:'wire-label', x:(a[0]+b[0])/2 + (horizontal ? 0 : sign * 31),
+        y:(a[1]+b[1])/2 + (horizontal ? (parallel && sign > 0 ? 14 : -5) : 4) });
+      const characters = Array.from(edge.label);
+      label.textContent = characters.length > 10 ? characters.slice(0,9).join('') + '…' : edge.label;
+      wires.append(connector, label);
+    }
+  }
+  new ResizeObserver(drawEdges).observe(graph);
+
+  function edgeRow(edge) {
+    const row = make('li');
+    const line = make('div', null, 'edge-label');
+    line.append(nodeButton(edge.from), make('span', '→ ' + edge.label + ' →'), nodeButton(edge.to));
+    if (edge.kind && edge.kind !== 'actual') line.append(make('span', kinds[edge.kind], 'edge-kind meta'));
+    row.append(line, make('p', edge.detail, 'edge-detail'));
+    if (edge.evidence) row.append(make('p', '依据 · ' + edge.evidence, 'meta'));
+    return row;
+  }
+  select('[data-edge-index]').hidden = !data.edges.length;
+  for (const edge of data.edges) select('[data-all-edges]').append(edgeRow(edge));
+  for (const path of data.paths ?? []) {
+    const section = make('section', null, 'path');
+    const list = make('ol', null, 'path-list');
+    for (const step of path.steps) {
+      const row = make('li');
+      row.append(nodeButton(step.node), make('p', step.note));
+      list.append(row);
+    }
+    section.append(make('h3', path.title), list);
+    select('[data-paths]').append(section);
+  }
+  for (const group of new Set(data.nodes.map(node => node.group))) {
+    const folder = make('details', null, 'folder');
+    const list = make('ul', null, 'folder-list');
+    for (const node of data.nodes.filter(node => node.group === group)) {
+      const row = make('li');
+      row.append(nodeButton(node.id));
+      list.append(row);
+    }
+    folder.append(make('summary', group), list);
+    select('[data-folders]').append(folder);
+    directory.set(group, folder);
+  }
+  function show(view) {
+    for (const panel of root.querySelectorAll('[data-panel]')) panel.hidden = panel.dataset.panel !== view;
+    for (const button of root.querySelectorAll('[data-view]')) button.setAttribute('aria-pressed', button.dataset.view === view);
+    if (view === 'overview') requestAnimationFrame(drawEdges);
+  }
+  function openNode(id, keepLinks = false) {
+    const node = byId.get(id);
+    for (const [group, folder] of directory) folder.open = group === node.group;
+    for (const button of select('[data-folders]').querySelectorAll('[data-node]')) button.setAttribute('aria-pressed', button.dataset.node === id);
+    const reader = select('[data-reader]');
+    const head = make('div', null, 'reader-head');
+    head.append(make('p', node.group, 'meta'), make('h2', node.title), make('p', node.summary));
+    if (node.source) head.append(make('p', node.source, 'meta'));
+    reader.replaceChildren(head);
+    const connected = data.edges.filter(edge => edge.from === id || edge.to === id);
+    if (connected.length) {
+      const links = make('details', null, 'edge-index');
+      links.open = keepLinks;
+      const list = make('ul', null, 'edge-list');
+      for (const edge of connected) list.append(edgeRow(edge));
+      links.append(make('summary', '与其他部件的关系 · ' + connected.length + ' 条'), list);
+      reader.append(links);
+    }
+    if (node.blocks?.length) {
+      const blocks = make('section', null, 'blocks');
+      blocks.append(make('h3', '细节'));
+      for (const block of node.blocks) {
+        const element = make('details');
+        element.append(make('summary', block.title), make('p', block.summary));
+        if (block.source) element.append(make('p', block.source, 'meta'));
+        if (block.code) {
+          const source = make('details');
+          source.append(make('summary', '查看原文'), make('pre', block.code));
+          element.append(source);
+        }
+        blocks.append(element);
+      }
+      reader.append(blocks);
+    }
+  }
+  root.addEventListener('click', event => {
+    const button = event.target.closest('button[data-view],button[data-node]');
+    if (!button) return;
+    if (button.dataset.node) {
+      openNode(button.dataset.node, Boolean(button.closest('[data-reader] .edge-list')));
+      show('detail');
+      select('[data-reader]').scrollIntoView({block:'nearest'});
+    } else {
+      show(button.dataset.view);
+    }
+  });
+  openNode(data.nodes[0].id);
+})();
+</script>
+</body>
+</html>
