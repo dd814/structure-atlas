@@ -55,6 +55,7 @@ pre{padding:.75rem;background:var(--hint);white-space:pre-wrap;tab-size:4;overfl
 @media(max-width:760px){.diagram{display:none}.explorer{grid-template-columns:1fr;gap:.9rem}}
 @media(pointer:coarse){button,summary{min-height:44px}}
 __ATLAS_PROGRESS_CSS__
+__ATLAS_WALKTHROUGH_CSS__
 </style>
 </head>
 <body>
@@ -65,6 +66,7 @@ __ATLAS_PROGRESS_CSS__
     <button type="button" data-view="paths" aria-pressed="false">沿具体过程读</button>
     <button type="button" data-view="detail" aria-pressed="false">部件与细节</button>
     <button type="button" data-view="progress" aria-pressed="false" hidden>项目进展</button>
+    <button type="button" data-view="walkthrough" aria-pressed="false" hidden>一起跑</button>
   </nav>
   <section data-panel="overview">
     <h2>各部分怎样交接</h2>
@@ -82,10 +84,12 @@ __ATLAS_PROGRESS_CSS__
     <article class="reader" data-reader aria-live="polite"></article>
   </section>
   <section data-panel="progress" hidden><h2>项目进展</h2><p class="section-intro caption">更新后刷新本页，即可查看最新记录。</p><div data-progress-log></div></section>
+  <section data-panel="walkthrough" hidden></section>
 </main>
 <script id="atlas-data" type="application/json">__ATLAS_JSON__</script>
 <script>
 __ATLAS_PROGRESS_JS__
+__ATLAS_WALKTHROUGH_JS__
 (() => {
   const data = JSON.parse(document.getElementById('atlas-data').textContent);
   const root = document.getElementById('atlas');
@@ -119,6 +123,10 @@ __ATLAS_PROGRESS_JS__
   select('[data-legend]').hidden = !data.edges.some(edge => edge.kind && edge.kind !== 'actual');
   select('[data-view="paths"]').hidden = !data.paths?.length;
   select('[data-view="progress"]').hidden = !data.checkpoints?.length;
+  select('[data-view="walkthrough"]').hidden = !data.walkthrough;
+  const walkthrough = data.walkthrough && mountWalkthrough(
+    select('[data-panel="walkthrough"]'), data.walkthrough, make, nodeButton,
+  );
   const latestNote = mountAtlasProgress({
     panel:select('[data-progress-log]'), summary:select('[data-progress-summary]'),
     checkpoints:data.checkpoints ?? [], title:data.title, label:id => byId.get(id).title,
@@ -204,6 +212,8 @@ __ATLAS_PROGRESS_JS__
     directory.set(group, folder);
   }
   function show(view) {
+    if (view === 'walkthrough') walkthrough?.link();
+    else if (location.hash.startsWith('#walkthrough/')) history.replaceState(null, '', location.pathname + location.search);
     for (const panel of root.querySelectorAll('[data-panel]')) panel.hidden = panel.dataset.panel !== view;
     for (const button of root.querySelectorAll('[data-view]')) button.setAttribute('aria-pressed', button.dataset.view === view);
     if (view === 'overview') requestAnimationFrame(drawEdges);
@@ -219,6 +229,12 @@ __ATLAS_PROGRESS_JS__
     reader.replaceChildren(head);
     const note = latestNote(id);
     if (note) reader.append(note);
+    for (const step of data.walkthrough?.steps.filter(step => step.node === id) ?? []) {
+      const entry = make('button', '一起跑 · ' + step.title);
+      entry.type = 'button';
+      entry.addEventListener('click', () => { walkthrough.select(step.id); show('walkthrough'); });
+      reader.append(entry);
+    }
     const connected = data.edges.filter(edge => edge.from === id || edge.to === id);
     if (connected.length) {
       const links = make('details', null, 'edge-index');
@@ -257,6 +273,7 @@ __ATLAS_PROGRESS_JS__
     }
   });
   openNode(data.nodes[0].id);
+  if (walkthrough && location.hash.startsWith('#walkthrough/')) show('walkthrough');
 })();
 </script>
 </body>

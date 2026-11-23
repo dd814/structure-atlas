@@ -45,3 +45,5 @@ python <skill-dir>/scripts/build_atlas.py <map.json> <output.html>
 - `date` 用 `YYYY-MM-DD`。`node` 用已有部件 ID。同一次更新里每个部件合并成一条。
 - `status` 选 `verified`（已验证）、`implemented`（已实现待验证）、`blocked`（受阻）或 `planned`（待推进）。`verified` 要有 `evidence`。有可定位的测试、产物或用户决定时，写到 `evidence`。`next` 可填接下来要核对或讨论的具体问题。
 - 更新只记看得出结果的变化。处于试验、待核验或有依赖的工作按实际状态标注。当前状态变动时，一起校对受影响的部件摘要、流程或箭头。按已确认的目标路径重新生成，例如 `python <skill-dir>/scripts/build_atlas.py <map.json> <output.html> --force`。检查旧记录仍在、变更跳到对应部件、复制文字和更新日期正确。
+
+需要逐次对照代码、输入、真实输出和批注时，使用可选的 [实跑与批注](walkthrough.md)。

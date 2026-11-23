@@ -4,7 +4,9 @@ from datetime import date
 import html
 import json
 from pathlib import Path
+import re
 from tempfile import NamedTemporaryFile
+from urllib.parse import urlsplit
 
 
 KINDS = {"actual", "experimental", "planned", "uncertain"}
@@ -23,6 +25,53 @@ def array(record, field, where, optional=False):
     if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
         raise ValueError(f"{where}.{field} must be an array of objects")
     return value
+
+
+def validate_walkthrough(data, nodes):
+    if "walkthrough" not in data:
+        return
+    walkthrough = data["walkthrough"]
+    if not isinstance(walkthrough, dict):
+        raise ValueError("walkthrough must be an object")
+    text(walkthrough, "title", "walkthrough")
+    run_ids = set()
+
+    def unique_id(record, key, seen, where):
+        value = text(record, key, where)
+        if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}", value) or value in seen:
+            raise ValueError(f"{where}.{key} must be a unique short identifier")
+        seen.add(value)
+
+    unique_id(walkthrough, "id", set(), "walkthrough")
+    steps = array(walkthrough, "steps", "walkthrough")
+    if not steps:
+        raise ValueError("walkthrough needs at least one step")
+    step_ids = set()
+    for step in steps:
+        unique_id(step, "id", step_ids, "walkthrough step")
+        where = "step " + step["id"]
+        for field in ("title", "node", "source", "input", "expected"):
+            text(step, field, where)
+        if step["node"] not in nodes:
+            raise ValueError(f"{where}.node must name a known node")
+        text(step, "advice", where, optional=True)
+        attempt_ids = set()
+        for attempt in array(step, "attempts", where):
+            unique_id(attempt, "id", attempt_ids, where)
+            unique_id(attempt, "run_id", run_ids, where)
+            label = f"{where} / {attempt['id']}"
+            for field in ("code_version", "input_id", "source", "code", "input", "expected", "result"):
+                text(attempt, field, label)
+            for field in ("advice", "change", "output"):
+                text(attempt, field, label, optional=True)
+            preview = text(attempt, "preview_url", label, optional=True)
+            if preview:
+                url = urlsplit(preview)
+                if (url.scheme != "http" or not re.fullmatch(r"127\.0\.0\.1:[0-9]+", url.netloc)
+                        or not url.port or any(char.isspace() or char == "\\" for char in preview)):
+                    raise ValueError(f"{label}.preview_url must use http://127.0.0.1:<port>")
+            if not attempt.get("output") and not preview:
+                raise ValueError(f"{label} needs output or a run-specific preview_url")
 
 
 def validate_checkpoints(data, ids):
@@ -117,6 +166,7 @@ def validate(data):
                 raise ValueError(f"{location}.node must name a known node")
             text(step, "note", location)
     validate_checkpoints(data, ids)
+    validate_walkthrough(data, ids)
 
 
 def write_document(output, document, overwrite=False):
@@ -136,6 +186,21 @@ def write_document(output, document, overwrite=False):
             staging.unlink(missing_ok=True)
 
 
+def render(data):
+    validate(data)
+    assets = Path(__file__).resolve().parents[1] / "assets"
+    payload = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+    payload = payload.replace("<", r"\u003c").replace(">", r"\u003e").replace("&", r"\u0026")
+    document = (assets / "atlas.html").read_text(encoding="utf-8")
+    for feature in ("progress", "walkthrough"):
+        for suffix in ("css", "js"):
+            marker = f"__ATLAS_{feature.upper()}_{suffix.upper()}__"
+            resource = (assets / f"{feature}.{suffix}").read_text(encoding="utf-8")
+            document = document.replace(marker, resource, 1)
+    document = document.replace("__ATLAS_JSON__", payload, 1)
+    return document.replace("__ATLAS_TITLE__", html.escape(data["title"]), 1)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input", type=Path, help="UTF-8 atlas JSON")
@@ -146,16 +211,7 @@ def main():
         if args.output.resolve() == args.input.resolve():
             raise ValueError("Input and output must be different paths")
         data = json.loads(args.input.read_text(encoding="utf-8-sig"))
-        validate(data)
-        assets = Path(__file__).resolve().parents[1] / "assets"
-        payload = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
-        payload = payload.replace("<", r"\u003c").replace(">", r"\u003e").replace("&", r"\u0026")
-        document = (assets / "atlas.html").read_text(encoding="utf-8")
-        document = document.replace("__ATLAS_PROGRESS_CSS__", (assets / "progress.css").read_text(encoding="utf-8"), 1)
-        document = document.replace("__ATLAS_PROGRESS_JS__", (assets / "progress.js").read_text(encoding="utf-8"), 1)
-        document = document.replace("__ATLAS_JSON__", payload, 1)
-        document = document.replace("__ATLAS_TITLE__", html.escape(data["title"]), 1)
-        write_document(args.output, document, args.force)
+        write_document(args.output, render(data), args.force)
     except (OSError, ValueError) as error:
         parser.error(str(error))
     print(f"{len(data['nodes'])} nodes, {len(data['edges'])} relations")
